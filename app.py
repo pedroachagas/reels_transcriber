@@ -20,7 +20,7 @@ if st.button("Download and Transcribe"):
             if Model in whisper.available_models():
                 st.write(f"**{Model} model is selected.**")
             else:
-                st.write(f"**{Model} model is no longer available.**\n Please select one of the following:\n - {'\n - '.join(whisper.available_models())}")
+                st.write(f"**{Model} model is no longer available.")
                 
             language = "English" 
             verbose = 'Live transcription' 
