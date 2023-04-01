@@ -82,8 +82,17 @@ if st.button("Download and Transcribe"):
                 **args,
             )
 
-            st.write(f"Reel downloaded successfully. Transcription: {video_transcription}")
-            
+         # Download video
+            L = instaloader.Instaloader()
+            post = instaloader.Post.from_shortcode(L.context, link.split('/')[-2])
+            video_url = post.video_url
+            transcription = whisper.transcribe(
+                whisper_model,
+                video_url,
+                temperature=temperature,
+                **args,
+            )['text']
+            st.write(f"Transcription: {transcription}")
         else:
             st.write("Please fill out the field")
             
