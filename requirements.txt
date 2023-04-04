@@ -2,5 +2,5 @@ instaloader==4.9.6
 ipykernel==6.22.0
 openai==0.27.2
 numpy==1.23.0
-git+install git+https://github.com/openai/whisper.git
+git+https://github.com/openai/whisper.git
 streamlit==1.20.0
