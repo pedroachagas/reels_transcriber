@@ -6,6 +6,9 @@ import torch
 import shutil
 from IPython.display import display, Markdown
 import whisper
+import warnings
+
+warnings.filterwarnings('ignore')
 
 st.title("Instagram Reel Transcription")
 
@@ -22,7 +25,7 @@ if st.button("Download and Transcribe"):
             else:
                 st.write(f"**{Model} model is no longer available.")
                 
-            language = "English" 
+            language = "Auto detection" 
             verbose = 'Live transcription' 
             output_format = 'all' 
             task = 'transcribe' 
@@ -72,17 +75,12 @@ if st.button("Download and Transcribe"):
             else:
                 temperature = [temperature]
 
-            reel = instaloader.Post.from_shortcode(instaloader.context, link.split("/")[-2])
-            video_path_local = instaloader.context.download_video(reel, filename="temp", targetdir=None)
-            
-            video_transcription = whisper.transcribe(
-                whisper_model,
-                str(video_path_local),
-                temperature=temperature,
-                **args,
-            )
 
-         # Download video
+            if Model.endswith(".en") and args["language"] not in {"en", "English"}:
+                warnings.warn(f"{Model} is an English-only model but receipted '{args['language']}'; using English instead.")
+                args["language"] = "en"
+
+            # Download video
             L = instaloader.Instaloader()
             post = instaloader.Post.from_shortcode(L.context, link.split('/')[-2])
             video_url = post.video_url
