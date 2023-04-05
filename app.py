@@ -14,16 +14,22 @@ st.title("Instagram Reel Transcription")
 
 link = st.text_input("Enter Reel link here:")
 
+model_options = [
+    'tiny.en', 'tiny', 'base.en', 'base', 'small.en', 'small', 
+    'medium.en', 'medium', 'large-v1', 'large-v2', 'large'
+]
+
+selected_model = st.selectbox('Select a model configuration', model_options)
+
 if st.button("Download and Transcribe"):
     try:
         if link:
-            Model = 'tiny.en' 
-            whisper_model = whisper.load_model(Model)
+            whisper_model = whisper.load_model(selected_model)
 
-            if Model in whisper.available_models():
-                st.write(f"**{Model} model is selected.**")
+            if selected_model in whisper.available_models():
+                st.write(f"**{selected_model} model is selected.**")
             else:
-                st.write(f"**{Model} model is no longer available.")
+                st.write(f"**{selected_model} model is no longer available.**")
                 
             language = "Auto detection" 
             verbose = 'Live transcription' 
@@ -76,8 +82,8 @@ if st.button("Download and Transcribe"):
                 temperature = [temperature]
 
 
-            if Model.endswith(".en") and args["language"] not in {"en", "English"}:
-                warnings.warn(f"{Model} is an English-only model but receipted '{args['language']}'; using English instead.")
+            if selected_model.endswith(".en") and args["language"] not in {"en", "English"}:
+                warnings.warn(f"{selected_model} is an English-only model but receipted '{args['language']}'; using English instead.")
                 args["language"] = "en"
 
             # Download video
