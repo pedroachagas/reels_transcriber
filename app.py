@@ -17,7 +17,7 @@ link = st.text_input("Enter Reel link here:")
 if st.button("Download and Transcribe"):
     try:
         if link:
-            Model = 'small.en' 
+            Model = 'tiny.en' 
             whisper_model = whisper.load_model(Model)
 
             if Model in whisper.available_models():
@@ -44,8 +44,8 @@ if st.button("Download and Transcribe"):
             no_speech_threshold = 0.6 
 
             verbose_lut = {
-            'Live transcription': True,
-            'Progress bar': True,
+            'Live transcription': False,
+            'Progress bar': False,
             'None': None
             }
 
