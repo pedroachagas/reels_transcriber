@@ -7,33 +7,65 @@ import shutil
 from IPython.display import display, Markdown
 import whisper
 import warnings
+import openai
+
+openai.api_key = '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'
+
+def process_transcription(transcription):
+    completion = openai.ChatCompletion.create(
+    model="gpt-3.5-turbo",
+    temperature = 0.1,
+
+    messages=[
+            {"role": "system", "content": "You are a helpful text formatter assistant that answers only using Markdown formatted text."},
+            {"role": "user", "content": f"Separate the text below into chapters. Use as many chapters as possible. Do not create a list of topics of chapter names. Include the whole text in its full length, but divided into chapters: {transcription}"},
+        ]
+    )
+    return completion.choices[0].message.content
+
+def create_title(transcription):
+    completion = openai.ChatCompletion.create(
+    model="gpt-3.5-turbo",
+    temperature = 0.1,
+
+    messages=[
+            {"role": "system", "content": "You are a helpful text writing assistant that answers only using Markdown formatted text. You do not say or return anything else other than what was asked by the user"},
+            {"role": "user", "content": f"Write a title for the text below. Return only the title, without quotes:\n\n{transcription}"},
+
+        ]
+    )
+    return completion.choices[0].message.content.replace('"','')
 
 warnings.filterwarnings('ignore')
 
 st.title("Instagram Reel Transcription")
 
+L = instaloader.Instaloader()
+
 link = st.text_input("Enter Reel link here:")
 
-model_options = [
-    'tiny.en', 'tiny', 'base.en', 'base', 'small.en', 'small', 
-    'medium.en', 'medium', 'large-v1', 'large-v2', 'large'
-]
+with st.sidebar:
 
-selected_model = st.selectbox('Select a model configuration', model_options)
+    st.header("Model Selection")
+
+
+    model_options = [
+        'tiny.en', 'tiny', 'base.en', 'base', 'small.en', 'small', 
+        'medium.en', 'medium', 'large-v1', 'large-v2', 'large'
+    ]
+
+    selected_model = st.selectbox('Select a model size', model_options)
+    st.caption('The smaller the model, the faster the transcription.\nThe models with ".en" are smaller, but only work with the english language.')
+
 
 if st.button("Download and Transcribe"):
     try:
         if link:
+
             whisper_model = whisper.load_model(selected_model)
 
-            if selected_model in whisper.available_models():
-                st.write(f"**{selected_model} model is selected.**")
-            else:
-                st.write(f"**{selected_model} model is no longer available.**")
-                
             language = "Auto detection" 
             verbose = 'Live transcription' 
-            output_format = 'all' 
             task = 'transcribe' 
             temperature = 0.15 
             temperature_increment_on_fallback = 0.2 
@@ -76,30 +108,34 @@ if st.button("Download and Transcribe"):
 
             temperature = args.pop("temperature")
             temperature_increment_on_fallback = args.pop("temperature_increment_on_fallback")
-            if temperature_increment_on_fallback is not None:
-                temperature = tuple(np.arange(temperature, 1.0 + 1e-6, temperature_increment_on_fallback))
-            else:
-                temperature = [temperature]
-
-
-            if selected_model.endswith(".en") and args["language"] not in {"en", "English"}:
-                warnings.warn(f"{selected_model} is an English-only model but receipted '{args['language']}'; using English instead.")
-                args["language"] = "en"
 
             # Download video
-            L = instaloader.Instaloader()
-            post = instaloader.Post.from_shortcode(L.context, link.split('/')[-2])
-            video_url = post.video_url
-            transcription = whisper.transcribe(
-                whisper_model,
-                video_url,
-                temperature=temperature,
-                **args,
-            )['text']
-            st.write(f"Transcription: {transcription}")
+            with st.spinner('Downloading video...'):
+                post = instaloader.Post.from_shortcode(L.context, link.split('/')[-2])
+                video_url = post.video_url
+
+
+            with st.spinner('Transcribing video...'):
+                transcription = whisper.transcribe(
+                    whisper_model,
+                    video_url,
+                    temperature=temperature,
+                    **args,
+                    )['text']
+            
+            with st.spinner('Processing transcription...'):
+                title = create_title(transcription)
+                transcription_processed = process_transcription(transcription).replace('#', '##')
+            
+            st.success('Transcription completed!')
+
+            with st.expander("See transcription"):
+                st.markdown("# " + title)
+                st.markdown(transcription_processed)
         else:
             st.write("Please fill out the field")
-            
+
+        
     except Exception as e:
         st.write("Something went wrong. Please try again later.")
         st.write(e)
