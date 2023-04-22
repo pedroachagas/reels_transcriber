@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Copy to Clipboard Button</title>
+    <script src="https://unpkg.com/@streamlit/streamlit-component-lib"></script>
+    <style>
+      /* Add the following CSS to center the button vertically */
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+        margin: 0;
+      }
+
+      button {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+          "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji",
+          "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        font-size: 14px;
+        font-weight: 400;
+        line-height: 1.5;
+        text-align: center;
+        vertical-align: middle;
+        cursor: pointer;
+        user-select: none;
+        background-color: #f63366;
+        border: 1px solid transparent;
+        padding: 0.375rem 0.75rem;
+        color: #fff;
+        border-radius: 0.25rem;
+        transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
+          border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+      }
+      button:hover {
+        background-color: #dc2a58;
+        text-decoration: none;
+        color: #fff;
+      }
+      button:focus {
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(246, 51, 102, 0.25);
+      }
+    </style>
+  </head>
+  <body>
+    <button onclick="copyTextToClipboard()">Copy to Clipboard</button>
+    <script>
+      function copyTextToClipboard() {
+        const text = "{{ text }}";
+        navigator.clipboard.writeText(text).then(
+          function () {
+            alert("Copied to clipboard!");
+          },
+          function (err) {
+            alert("Failed to copy text: ", err);
+          }
+        );
+      }
+
+      streamlitInit();
+    </script>
+  </body>
+</html>
