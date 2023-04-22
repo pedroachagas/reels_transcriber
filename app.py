@@ -5,13 +5,14 @@ import openai
 from pytube import YouTube
 import instaloader
 import streamlit.components.v1 as components
-
+import streamlit_toggle as tog
 
 # Constants
 USD_TO_BRL = 5.0  # The conversion rate from USD to BRL
 API_COST_PER_TOKEN = 0.002 / 1000  # The OpenAI API cost per token
 
-openai.api_key = st.secrets.openai_apikey
+openai.api_key = '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'
+#openai.api_key = st.secrets.openai_apikey
 
 def tokens_to_brl(tokens):
     return tokens * API_COST_PER_TOKEN * USD_TO_BRL
@@ -88,7 +89,7 @@ link = st.text_input("Enter Instagram Reel or YouTube video link here:")
 
 with st.sidebar:
 
-    st.header("Model Selection")
+    st.subheader("Whisper Model Selection")
 
 
     model_options = [
@@ -99,8 +100,40 @@ with st.sidebar:
     selected_model = st.selectbox('Select a model size', model_options)
     st.caption('The smaller the model, the faster the transcription.\nThe models with ".en" are smaller, but only work with the english language.')
 
+    st.subheader("Language Selection")
+    language_options = [
+        'Auto detection', 'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese'
+    ]
+    language_mapping = {
+        'Auto detection': None,
+        'English': 'en',
+        'Spanish': 'es',
+        'French': 'fr',
+        'German': 'de',
+        'Italian': 'it',
+        'Portuguese': 'pt'
+    }
 
-if st.button("Download and Transcribe"):
+    selected_language = st.selectbox('Select the language of the video', language_options)
+    selected_language_code = language_mapping[selected_language]
+
+    if selected_model.endswith('.en') and selected_language_code != 'en' and selected_language_code is not None:
+        st.warning("The selected model only works with English. Please choose a different model or select English as the language.")
+
+    st.subheader("Transcription Processing")
+    process_transcription_toggle = tog.st_toggle_switch(
+        label="Transcribe and process", 
+        key="Key2", 
+        default_value=False, 
+        label_after=True, 
+        inactive_color='#D3D3D3', 
+        active_color="#11567f", 
+        track_color="#29B5E8"
+    )
+
+button = st.button("Transcribe")
+
+if button:
     try:
         if link:
 
@@ -130,22 +163,22 @@ if st.button("Download and Transcribe"):
             }
 
             args = dict(
-            language = (None if language == "Auto detection" else language),
-            verbose = verbose_lut[verbose],
-            task = task,
-            temperature = temperature,
-            temperature_increment_on_fallback = temperature_increment_on_fallback,
-            best_of = best_of,
-            beam_size = beam_size,
-            patience=patience,
-            length_penalty=(length_penalty if length_penalty>=0.0 else None),
-            suppress_tokens=suppress_tokens,
-            initial_prompt=(None if not initial_prompt else initial_prompt),
-            condition_on_previous_text=condition_on_previous_text,
-            fp16=fp16,
-            compression_ratio_threshold=compression_ratio_threshold,
-            logprob_threshold=logprob_threshold,
-            no_speech_threshold=no_speech_threshold
+                language=selected_language_code,
+                verbose=verbose_lut[verbose],
+                task=task,
+                temperature=temperature,
+                temperature_increment_on_fallback=temperature_increment_on_fallback,
+                best_of=best_of,
+                beam_size=beam_size,
+                patience=patience,
+                length_penalty=(length_penalty if length_penalty >= 0.0 else None),
+                suppress_tokens=suppress_tokens,
+                initial_prompt=(None if not initial_prompt else initial_prompt),
+                condition_on_previous_text=condition_on_previous_text,
+                fp16=fp16,
+                compression_ratio_threshold=compression_ratio_threshold,
+                logprob_threshold=logprob_threshold,
+                no_speech_threshold=no_speech_threshold
             )
 
             temperature = args.pop("temperature")
@@ -167,21 +200,30 @@ if st.button("Download and Transcribe"):
                     **args,
                     )['text']
 
-            if len(transcription.split()) > 2000:
-                st.warning("The transcription is longer than 2000 words. Skipping the processing step and returning the unprocessed transcription.")
-                st.session_state.transcription_processed = transcription
-                st.session_state.title = 'Raw transcription'
-            else:
-                with st.spinner('Processing transcription...'):
-                    title, title_cost = create_title(transcription)
-                    transcription_processed, process_cost = process_transcription(transcription)
-                    transcription_processed = transcription_processed.replace('#', '##')
+            if process_transcription_toggle:
+                if len(transcription.split()) > 2500:
+                    st.warning("The transcription is longer than 2500 words. Skipping the processing step and returning the unprocessed transcription.")
+                    st.session_state.transcription_processed = transcription
+                    st.session_state.process_cost = 0
+                    st.session_state.title_cost = 0
+                    st.session_state.title = 'Raw transcription'
+                else:
+                    with st.spinner('Processing transcription...'):
+                        title, title_cost = create_title(transcription)
+                        transcription_processed, process_cost = process_transcription(transcription)
+                        transcription_processed = transcription_processed.replace('#', '##')
 
-                st.session_state.transcription_processed = transcription_processed
-                st.session_state.title = title
-                st.session_state.title_cost = title_cost
-                st.session_state.process_cost = process_cost
-                st.session_state.transcription = transcription
+                    st.session_state.transcription_processed = transcription_processed
+                    st.session_state.title = title
+                    st.session_state.title_cost = title_cost
+                    st.session_state.process_cost = process_cost
+                    st.session_state.transcription = transcription
+                    st.success('Transcription completed!')
+            else:
+                st.session_state.transcription_raw = transcription
+                st.session_state.process_cost = 0
+                st.session_state.title_cost = 0
+                st.session_state.title = 'Raw transcription'
                 st.success('Transcription completed!')
 
         else:
@@ -192,19 +234,90 @@ if st.button("Download and Transcribe"):
         st.write(e)
 
 if "transcription_processed" in st.session_state:
+    
+    show_original = tog.st_toggle_switch(label="Show raw transcritpion", 
+                    key="Key1", 
+                    default_value=False, 
+                    label_after = True, 
+                    inactive_color = '#D3D3D3', 
+                    active_color="#11567f", 
+                    track_color="#29B5E8"
+                    )
+    
     with st.expander("See transcription"):
-        st.markdown("# " + st.session_state.title)
-        st.markdown(st.session_state.transcription_processed)
-        copy_button(st.session_state.transcription_processed)
-        st.caption(f"Cost in BRL for processing transcription: R$ {st.session_state.title_cost + st.session_state.process_cost:.4f}")
+        # Display the title and transcription based on the user's choice
+        if show_original:
+            st.markdown("# Raw transcription")
+            st.markdown(st.session_state.transcription)
+            copy_button(st.session_state.transcription)
+            st.caption(f"Cost in BRL for processing transcription: R$ {st.session_state.title_cost + st.session_state.process_cost:.4f}")
+        else:
+            st.markdown("# " + st.session_state.title)
+            st.markdown(st.session_state.transcription_processed)
+            copy_button(st.session_state.transcription_processed)
+            st.caption(f"Cost in BRL for processing transcription: R$ {st.session_state.title_cost + st.session_state.process_cost:.4f}")
 
-    if st.session_state.title != 'Raw Transcription':
-        # New feature: user inputs a text prompt
+            if st.button("Retry"):
+                with st.spinner('Reprocessing transcription...'):
+                    title, title_cost = create_title(st.session_state.transcription)
+                    transcription_processed, prompt_cost = process_transcription(st.session_state.transcription, 0.7)
+                st.session_state.transcription_processed_reprocessed = transcription_processed.replace('#', '##')
+                st.session_state.title_reprocessed = title
+                st.session_state.prompt_cost = prompt_cost
+                st.session_state.title_cost = title_cost
+
+    with st.expander("See reprocessed transcription"):
+        if "transcription_processed_reprocessed" in st.session_state:
+            st.markdown("# " + st.session_state.title_reprocessed)
+            st.markdown(st.session_state.transcription_processed_reprocessed)
+            copy_button(st.session_state.transcription_processed)
+            st.caption(f"Cost in BRL for applying prompt: R$ {st.session_state.prompt_cost + st.session_state.title_cost:.4f}")
+
+if "transcription_processed" in st.session_state and st.session_state.title != 'Raw transcription':
+
+    st.markdown("""---""")   
+    prompt = st.text_input("Enter a text prompt to modify the processed transcription:")
+
+    if st.button("Apply Prompt"):
+        with st.spinner("Applying prompt..."):
+            modified_transcription, prompt_cost = apply_prompt(prompt, st.session_state.transcription_processed)
+        st.session_state.modified_transcription = modified_transcription
+        st.session_state.prompt_cost = prompt_cost
+
+    if "modified_transcription" in st.session_state:
+        with st.expander("See modified transcription"):
+            st.markdown(st.session_state.modified_transcription)
+            copy_button(st.session_state.modified_transcription)
+            st.caption(f"Cost in BRL for applying prompt: R$ {st.session_state.prompt_cost:.4f}")
+
+    
+elif not process_transcription_toggle and "transcription_raw" in st.session_state:
+    with st.expander("See transcription"):
+    # Display the title and transcription based on the user's choice
+        st.markdown("# " + st.session_state.title)
+        st.markdown(st.session_state.transcription_raw)
+        copy_button(st.session_state.transcription_raw)
+
+    if st.button("Process transcription"):
+        with st.spinner('Processing transcription...'):
+            title, title_cost = create_title(st.session_state.transcription_raw)
+            transcription_processed, prompt_cost = process_transcription(st.session_state.transcription_raw, 0.7)
+        st.session_state.transcription_processed_from_raw = transcription_processed.replace('#', '##')
+        st.session_state.title_from_raw = title
+        st.session_state.prompt_cost = prompt_cost
+        st.session_state.title_cost = title_cost
+
+    if "transcription_processed_from_raw" in st.session_state:    
+        with st.expander("See processed transcription"):
+            st.markdown("# " + st.session_state.title_from_raw)
+            st.markdown(st.session_state.transcription_processed_from_raw)
+            st.caption(f"Cost in BRL for processing transcription: R$ {st.session_state.prompt_cost + st.session_state.title_cost:.4f}")
+
         prompt = st.text_input("Enter a text prompt to modify the processed transcription:")
 
         if st.button("Apply Prompt"):
             with st.spinner("Applying prompt..."):
-                modified_transcription, prompt_cost = apply_prompt(prompt, st.session_state.transcription_processed)
+                modified_transcription, prompt_cost = apply_prompt(prompt, st.session_state.transcription_processed_from_raw)
             st.session_state.modified_transcription = modified_transcription
             st.session_state.prompt_cost = prompt_cost
 
@@ -214,16 +327,5 @@ if "transcription_processed" in st.session_state:
                 copy_button(st.session_state.modified_transcription)
                 st.caption(f"Cost in BRL for applying prompt: R$ {st.session_state.prompt_cost:.4f}")
 
-        if st.button("Retry"):
-            with st.spinner('Reprocessing transcription...'):
-                title = create_title(st.session_state.transcription)
-                transcription_processed = process_transcription(st.session_state.transcription, 0.7).replace('#', '##')
-            st.session_state.transcription_processed_reprocessed = transcription_processed
-            st.session_state.title_reprocessed = title
-
-        if "transcription_processed_reprocessed" in st.session_state:
-            with st.expander("See reprocessed transcription"):
-                st.markdown("# " + st.session_state.title_reprocessed)
-                st.markdown(st.session_state.transcription_processed_reprocessed)
-    else:
-        st.stop()
+else:
+    st.stop()
