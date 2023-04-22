@@ -1,0 +1,7 @@
+instaloader==4.9.6
+ipykernel==6.22.0
+openai==0.27.2
+numpy==1.23.0
+openai-whisper
+streamlit==1.20.0
+pytube==12.1.3
