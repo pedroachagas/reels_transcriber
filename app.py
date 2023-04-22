@@ -11,8 +11,7 @@ import streamlit_toggle as tog
 USD_TO_BRL = 5.0  # The conversion rate from USD to BRL
 API_COST_PER_TOKEN = 0.002 / 1000  # The OpenAI API cost per token
 
-openai.api_key = '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'
-#openai.api_key = st.secrets.openai_apikey
+openai.api_key = st.secrets.openai_apikey
 
 def tokens_to_brl(tokens):
     return tokens * API_COST_PER_TOKEN * USD_TO_BRL
