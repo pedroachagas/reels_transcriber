@@ -11,7 +11,7 @@ import streamlit.components.v1 as components
 USD_TO_BRL = 5.0  # The conversion rate from USD to BRL
 API_COST_PER_TOKEN = 0.002 / 1000  # The OpenAI API cost per token
 
-openai.api_key = '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'
+openai.api_key = st.secrets.openai_apikey
 
 def tokens_to_brl(tokens):
     return tokens * API_COST_PER_TOKEN * USD_TO_BRL
@@ -198,29 +198,32 @@ if "transcription_processed" in st.session_state:
         copy_button(st.session_state.transcription_processed)
         st.caption(f"Cost in BRL for processing transcription: R$ {st.session_state.title_cost + st.session_state.process_cost:.4f}")
 
-    # New feature: user inputs a text prompt
-    prompt = st.text_input("Enter a text prompt to modify the processed transcription:")
+    if st.session_state.title != 'Raw Transcription':
+        # New feature: user inputs a text prompt
+        prompt = st.text_input("Enter a text prompt to modify the processed transcription:")
 
-    if st.button("Apply Prompt"):
-        with st.spinner("Applying prompt..."):
-            modified_transcription, prompt_cost = apply_prompt(prompt, st.session_state.transcription_processed)
-        st.session_state.modified_transcription = modified_transcription
-        st.session_state.prompt_cost = prompt_cost
+        if st.button("Apply Prompt"):
+            with st.spinner("Applying prompt..."):
+                modified_transcription, prompt_cost = apply_prompt(prompt, st.session_state.transcription_processed)
+            st.session_state.modified_transcription = modified_transcription
+            st.session_state.prompt_cost = prompt_cost
 
-    if "modified_transcription" in st.session_state:
-        with st.expander("See modified transcription"):
-            st.markdown(st.session_state.modified_transcription)
-            copy_button(st.session_state.modified_transcription)
-            st.caption(f"Cost in BRL for applying prompt: R$ {st.session_state.prompt_cost:.4f}")
+        if "modified_transcription" in st.session_state:
+            with st.expander("See modified transcription"):
+                st.markdown(st.session_state.modified_transcription)
+                copy_button(st.session_state.modified_transcription)
+                st.caption(f"Cost in BRL for applying prompt: R$ {st.session_state.prompt_cost:.4f}")
 
-    if st.button("Retry"):
-        with st.spinner('Reprocessing transcription...'):
-            title = create_title(st.session_state.transcription)
-            transcription_processed = process_transcription(st.session_state.transcription, 0.7).replace('#', '##')
-        st.session_state.transcription_processed_reprocessed = transcription_processed
-        st.session_state.title_reprocessed = title
+        if st.button("Retry"):
+            with st.spinner('Reprocessing transcription...'):
+                title = create_title(st.session_state.transcription)
+                transcription_processed = process_transcription(st.session_state.transcription, 0.7).replace('#', '##')
+            st.session_state.transcription_processed_reprocessed = transcription_processed
+            st.session_state.title_reprocessed = title
 
-    if "transcription_processed_reprocessed" in st.session_state:
-        with st.expander("See reprocessed transcription"):
-            st.markdown("# " + st.session_state.title_reprocessed)
-            st.markdown(st.session_state.transcription_processed_reprocessed)
+        if "transcription_processed_reprocessed" in st.session_state:
+            with st.expander("See reprocessed transcription"):
+                st.markdown("# " + st.session_state.title_reprocessed)
+                st.markdown(st.session_state.transcription_processed_reprocessed)
+    else:
+        st.stop()
