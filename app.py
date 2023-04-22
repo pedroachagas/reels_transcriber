@@ -1,27 +1,70 @@
 import streamlit as st
-import instaloader
-import numpy as np
-import subprocess
-import torch
-import shutil
-from IPython.display import display, Markdown
 import whisper
 import warnings
 import openai
+from pytube import YouTube
+import instaloader
+import streamlit.components.v1 as components
 
-openai.api_key = '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'
 
-def process_transcription(transcription):
+# Constants
+USD_TO_BRL = 5.0  # The conversion rate from USD to BRL
+API_COST_PER_TOKEN = 0.002 / 1000  # The OpenAI API cost per token
+
+openai.api_key = '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'
+
+def tokens_to_brl(tokens):
+    return tokens * API_COST_PER_TOKEN * USD_TO_BRL
+
+def get_video_url(link):
+    try:
+        if "instagram.com" in link:
+            L = instaloader.Instaloader()
+            post = instaloader.Post.from_shortcode(L.context, link.split('/')[-2])
+            return post.video_url, "instagram"
+        elif "youtube.com" in link or "youtu.be" in link:
+            yt = YouTube(link)
+            return yt.streams.filter(file_extension="mp4", mime_type="video/mp4", progressive=True).first().url, "youtube"
+        else:
+            return None, None
+    except Exception as e:
+        st.write("Wait a second and try again!")
+        raise e
+    
+def copy_button(text):
+    return components.html(
+        open("copy_button/index.html").read().replace("{{ text }}", text.replace("\n", "\\n")),
+        width=None,
+        height=55,  # Set the height to 50 pixels
+    )
+
+# Add a new function to apply the user's prompt
+def apply_prompt(prompt, text):
+    completion = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        temperature=0.1,
+        messages=[
+            {"role": "system", "content": "You are a helpful text formatter assistant that answers only using Markdown formatted text."},
+            {"role": "user", "content": f"Apply the following prompt to the text:\n\n{prompt}\n\nText:\n{text}"},
+        ]
+    )
+    tokens_used = completion["usage"]["total_tokens"]
+    cost_in_brl = tokens_to_brl(tokens_used)
+    return completion.choices[0].message.content, cost_in_brl
+
+def process_transcription(transcription, temp=0.1) :
     completion = openai.ChatCompletion.create(
     model="gpt-3.5-turbo",
-    temperature = 0.1,
+    temperature = temp,
 
     messages=[
             {"role": "system", "content": "You are a helpful text formatter assistant that answers only using Markdown formatted text."},
             {"role": "user", "content": f"Separate the text below into chapters. Use as many chapters as possible. Do not create a list of topics of chapter names. Include the whole text in its full length, but divided into chapters: {transcription}"},
         ]
     )
-    return completion.choices[0].message.content
+    tokens_used = completion["usage"]["total_tokens"]
+    cost_in_brl = tokens_to_brl(tokens_used)
+    return completion.choices[0].message.content, cost_in_brl
 
 def create_title(transcription):
     completion = openai.ChatCompletion.create(
@@ -34,15 +77,14 @@ def create_title(transcription):
 
         ]
     )
-    return completion.choices[0].message.content.replace('"','')
-
+    tokens_used = completion["usage"]["total_tokens"]
+    cost_in_brl = tokens_to_brl(tokens_used)
+    return completion.choices[0].message.content.replace('"',''), cost_in_brl
 warnings.filterwarnings('ignore')
 
-st.title("Instagram Reel Transcription")
+st.title("Video Transcription App")
 
-L = instaloader.Instaloader()
-
-link = st.text_input("Enter Reel link here:")
+link = st.text_input("Enter Instagram Reel or YouTube video link here:")
 
 with st.sidebar:
 
@@ -110,11 +152,13 @@ if st.button("Download and Transcribe"):
             temperature_increment_on_fallback = args.pop("temperature_increment_on_fallback")
 
             # Download video
-            with st.spinner('Downloading video...'):
-                post = instaloader.Post.from_shortcode(L.context, link.split('/')[-2])
-                video_url = post.video_url
+            with st.spinner('Getting video link...'):
+                video_url, platform = get_video_url(link)
+                if not video_url:
+                    st.write("Invalid link. Please provide a valid Instagram Reel or YouTube video link.")
+                    raise ValueError("Invalid link")
 
-
+            # Transcribe video
             with st.spinner('Transcribing video...'):
                 transcription = whisper.transcribe(
                     whisper_model,
@@ -122,20 +166,61 @@ if st.button("Download and Transcribe"):
                     temperature=temperature,
                     **args,
                     )['text']
-            
-            with st.spinner('Processing transcription...'):
-                title = create_title(transcription)
-                transcription_processed = process_transcription(transcription).replace('#', '##')
-            
-            st.success('Transcription completed!')
 
-            with st.expander("See transcription"):
-                st.markdown("# " + title)
-                st.markdown(transcription_processed)
+            if len(transcription.split()) > 2000:
+                st.warning("The transcription is longer than 2000 words. Skipping the processing step and returning the unprocessed transcription.")
+                st.session_state.transcription_processed = transcription
+                st.session_state.title = 'Raw transcription'
+            else:
+                with st.spinner('Processing transcription...'):
+                    title, title_cost = create_title(transcription)
+                    transcription_processed, process_cost = process_transcription(transcription)
+                    transcription_processed = transcription_processed.replace('#', '##')
+
+                st.session_state.transcription_processed = transcription_processed
+                st.session_state.title = title
+                st.session_state.title_cost = title_cost
+                st.session_state.process_cost = process_cost
+                st.session_state.transcription = transcription
+                st.success('Transcription completed!')
+
         else:
             st.write("Please fill out the field")
 
-        
     except Exception as e:
         st.write("Something went wrong. Please try again later.")
         st.write(e)
+
+if "transcription_processed" in st.session_state:
+    with st.expander("See transcription"):
+        st.markdown("# " + st.session_state.title)
+        st.markdown(st.session_state.transcription_processed)
+        copy_button(st.session_state.transcription_processed)
+        st.caption(f"Cost in BRL for processing transcription: R$ {st.session_state.title_cost + st.session_state.process_cost:.4f}")
+
+    # New feature: user inputs a text prompt
+    prompt = st.text_input("Enter a text prompt to modify the processed transcription:")
+
+    if st.button("Apply Prompt"):
+        with st.spinner("Applying prompt..."):
+            modified_transcription, prompt_cost = apply_prompt(prompt, st.session_state.transcription_processed)
+        st.session_state.modified_transcription = modified_transcription
+        st.session_state.prompt_cost = prompt_cost
+
+    if "modified_transcription" in st.session_state:
+        with st.expander("See modified transcription"):
+            st.markdown(st.session_state.modified_transcription)
+            copy_button(st.session_state.modified_transcription)
+            st.caption(f"Cost in BRL for applying prompt: R$ {st.session_state.prompt_cost:.4f}")
+
+    if st.button("Retry"):
+        with st.spinner('Reprocessing transcription...'):
+            title = create_title(st.session_state.transcription)
+            transcription_processed = process_transcription(st.session_state.transcription, 0.7).replace('#', '##')
+        st.session_state.transcription_processed_reprocessed = transcription_processed
+        st.session_state.title_reprocessed = title
+
+    if "transcription_processed_reprocessed" in st.session_state:
+        with st.expander("See reprocessed transcription"):
+            st.markdown("# " + st.session_state.title_reprocessed)
+            st.markdown(st.session_state.transcription_processed_reprocessed)
