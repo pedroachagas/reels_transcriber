@@ -107,7 +107,7 @@ if ('transcription_processed' in st.session_state and st.session_state.transcrip
 
 if 'transcription_processed' in st.session_state and st.session_state.transcription_processed is not None:
     prompt = st.text_input("Enter a text prompt to modify the processed transcription:")
-
+  
     if st.button("Apply Prompt"):
         with st.spinner("Applying prompt..."):
             modified_transcription, prompt_cost = apply_prompt(prompt, st.session_state.transcription_processed)

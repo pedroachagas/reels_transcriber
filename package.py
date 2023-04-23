@@ -38,7 +38,6 @@ def copy_button(text):
         height=55,  # Set the height to 50 pixels
     )
 
-# Add a new function to apply the user's prompt
 def apply_prompt(prompt, text):
     completion = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
