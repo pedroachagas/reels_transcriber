@@ -6,6 +6,7 @@ import os
 import subprocess
 import streamlit.components.v1 as components
 import streamlit_toggle as tog
+from instagrapi import Client
 
 def set_api_key():
     openai.api_key = st.secrets.openai_apikey
@@ -19,9 +20,9 @@ def tokens_to_brl(tokens):
 def get_video_url(link):
     try:
         if "instagram.com" in link:
-            L = instaloader.Instaloader()
-            post = instaloader.Post.from_shortcode(L.context, link.split('/')[-2])
-            return post.video_url, "instagram"
+            cl = Client()
+            post = cl.media_pk_from_url(link)
+            return cl.media_info(post).video_url, "instagram"
         elif "youtube.com" in link or "youtu.be" in link:
             yt = YouTube(link)
             return yt.streams.filter(file_extension="mp4", mime_type="video/mp4", progressive=True).first().url, "youtube"
