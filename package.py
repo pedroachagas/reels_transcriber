@@ -18,8 +18,9 @@ def tokens_to_brl(tokens):
     API_COST_PER_TOKEN = 0.002 / 1000  # The OpenAI API cost per token
     return tokens * API_COST_PER_TOKEN * USD_TO_BRL
 
-def get_video_url(link):
-    while True:
+def get_video_url(link, max_retries=5):
+    retries = 0
+    while retries <= max_retries:
         try:
             if "instagram.com" in link:
                 cl = Client()
@@ -31,8 +32,12 @@ def get_video_url(link):
             else:
                 return None, None
         except Exception as e:
-            print("Error occurred: {}. Retrying in 5 seconds...".format(str(e)))
-            time.sleep(5)
+            retries += 1
+            if retries > max_retries:
+                st.write("Too many retries. Please check your link and try again later.")
+                raise e
+            st.write("Wait a second and try again!")
+            time.sleep(1)
 
     
 def copy_button(text):
