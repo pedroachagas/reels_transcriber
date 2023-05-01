@@ -34,10 +34,10 @@ def get_video_url(link, max_retries=5):
         except Exception as e:
             retries += 1
             if retries > max_retries:
-                st.write("Too many retries. Please check your link and try again later.")
+                st.write("Too many retries. Please check your link or try again later.")
                 raise e
             st.write("Error while trying to get the video URL. Retrying...")
-            time.sleep(1)
+            time.sleep(3)
 
     
 def copy_button(text):
