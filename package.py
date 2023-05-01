@@ -36,7 +36,7 @@ def get_video_url(link, max_retries=5):
             if retries > max_retries:
                 st.write("Too many retries. Please check your link and try again later.")
                 raise e
-            st.write("Wait a second and try again!")
+            st.write("Error while trying to get the video URL. Retrying...")
             time.sleep(1)
 
     
