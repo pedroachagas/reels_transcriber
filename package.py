@@ -7,6 +7,7 @@ import subprocess
 import streamlit.components.v1 as components
 import streamlit_toggle as tog
 from instagrapi import Client
+import time
 
 def set_api_key():
     openai.api_key = st.secrets.openai_apikey
@@ -18,19 +19,21 @@ def tokens_to_brl(tokens):
     return tokens * API_COST_PER_TOKEN * USD_TO_BRL
 
 def get_video_url(link):
-    try:
-        if "instagram.com" in link:
-            cl = Client()
-            post = cl.media_pk_from_url(link)
-            return cl.media_info(post).video_url, "instagram"
-        elif "youtube.com" in link or "youtu.be" in link:
-            yt = YouTube(link)
-            return yt.streams.filter(file_extension="mp4", mime_type="video/mp4", progressive=True).first().url, "youtube"
-        else:
-            return None, None
-    except Exception as e:
-        st.write("Wait a second and try again!")
-        raise e
+    while True:
+        try:
+            if "instagram.com" in link:
+                cl = Client()
+                post = cl.media_pk_from_url(link)
+                return cl.media_info(post).video_url, "instagram"
+            elif "youtube.com" in link or "youtu.be" in link:
+                yt = YouTube(link)
+                return yt.streams.filter(file_extension="mp4", mime_type="video/mp4", progressive=True).first().url, "youtube"
+            else:
+                return None, None
+        except Exception as e:
+            print("Error occurred: {}. Retrying in 5 seconds...".format(str(e)))
+            time.sleep(5)
+
     
 def copy_button(text):
     return components.html(
