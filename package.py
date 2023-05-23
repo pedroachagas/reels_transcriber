@@ -5,7 +5,6 @@ import streamlit as st
 import os
 import subprocess
 import streamlit.components.v1 as components
-import streamlit_toggle as tog
 from instagrapi import Client
 import time
 
@@ -18,7 +17,10 @@ def tokens_to_brl(tokens):
     API_COST_PER_TOKEN = 0.002 / 1000  # The OpenAI API cost per token
     return tokens * API_COST_PER_TOKEN * USD_TO_BRL
 
-def get_video_url(link, max_retries=5):
+from yt_dlp import YoutubeDL
+from pathlib import Path
+
+def get_video_url(link, max_retries=10):
     retries = 0
     while retries <= max_retries:
         try:
@@ -27,8 +29,18 @@ def get_video_url(link, max_retries=5):
                 post = cl.media_pk_from_url(link)
                 return cl.media_info(post).video_url, "instagram"
             elif "youtube.com" in link or "youtu.be" in link:
-                yt = YouTube(link)
-                return yt.streams.filter(file_extension="mp4", mime_type="video/mp4", progressive=True).first().url, "youtube"
+                ydl_opts = {
+                    'format': 'bestaudio/best',
+                    'outtmpl': '%(id)s.%(ext)s',
+                    'postprocessors': [{  # Extract audio using ffmpeg
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': 'wav',
+                    }]
+                }
+                with YoutubeDL(ydl_opts) as ydl:
+                    info_dict = ydl.extract_info(link, download=True)
+                    video_path_local = Path(f"{info_dict['id']}.wav")
+                    return str(video_path_local), "youtube"
             else:
                 return None, None
         except Exception as e:
@@ -37,7 +49,7 @@ def get_video_url(link, max_retries=5):
                 st.write("Too many retries. Please check your link or try again later.")
                 raise e
             st.write("Error while trying to get the video URL. Retrying...")
-            time.sleep(3)
+            time.sleep(1)
 
     
 def copy_button(text):
@@ -66,8 +78,8 @@ def process_transcription(transcription, temp=0.1) :
     temperature = temp,
 
     messages=[
-            {"role": "system", "content": "You are a helpful text formatter assistant that answers only using Markdown formatted text."},
-            {"role": "user", "content": f"Separate the text below into chapters. Use as many chapters as possible. Do not create a list of topics of chapter names. Include the whole text in its full length, but divided into chapters: {transcription}"},
+            {"role": "system", "content": "As a text formatter assistant, your task is to assist users with their queries by responding only in Markdown formatted text. Your primary objective is to categorize the text you receive into chapters, using as many chapters as necessary. However, you must not create a list of topics or chapter names."},
+            {"role": "user", "content": f"Text: {transcription}"},
         ]
     )
     tokens_used = completion["usage"]["total_tokens"]
@@ -151,13 +163,9 @@ def display_sidebar():
 
         st.subheader("Transcription Processing")
         st.caption('Keep this parameter turned off to see the transcription before processing it \n(Recommended)')
-        process_transcription_toggle = tog.st_toggle_switch(
+        process_transcription_toggle = st.checkbox(
             label="Transcribe and process",
             key="Key2",
-            default_value=False,
-            label_after=True,
-            inactive_color='#D3D3D3',
-            active_color="#11567f",
-            track_color="#29B5E8"
+            value=False,
         )
     return selected_model, selected_language_code, process_transcription_toggle
