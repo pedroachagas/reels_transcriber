@@ -39,7 +39,7 @@ if st.button("Transcribe") and (link or uploaded_file):
             suppress_tokens="-1",
             initial_prompt=None,
             condition_on_previous_text=True,
-            fp16=True,
+            fp16=False,
             compression_ratio_threshold=2.4,
             logprob_threshold=-1.0,
             no_speech_threshold=0.6,
